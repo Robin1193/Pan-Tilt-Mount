@@ -1,0 +1,5 @@
+{
+    "board": "arduino:mbed_nano:nanorp2040connect",
+    "port": "COM9",
+    "sketch": "pan_tilt_mount_arduino_rp2040_code.ino"
+}

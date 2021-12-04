@@ -100,7 +100,21 @@
 #define EEPROM_ADDRESS_TILT_ACCEL_INCREMENT_DELAY 82
 #define EEPROM_ADDRESS_SLIDER_ACCEL_INCREMENT_DELAY 84
 
-#define VERSION_NUMBER "Version: 3.11.2\n"
+#define BLE_DEVICE_NAME "Camera Slider"
+
+#define BLE_GENERAL_INFO_SERVICE_UUID "09E1F127-0E14-43FA-B453-74CC180B2C00"
+#define BLE_SERIAL_COMMAND_SERVICE_UUID "1AD18BD9-F649-47B8-87E6-CF9185A53700"
+
+#define BLE_GENERAL_INFO_BLE_API_VERSION_UUID "09E1F127-0E14-43FA-B453-74CC180B2C00"
+#define BLE_GENERAL_INFO_SOFTWARE_VERSION_UUID "09E1F127-0E14-43FA-B453-74CC180B2C01"
+#define BLE_GENERAL_INFO_DEVICE_NAME_UUID "09E1F127-0E14-43FA-B453-74CC180B2C02"
+
+#define BLE_SERIAL_COMMAND_COMMAND_FROM_MOBILE_DEVICE_UUID "1AD18BD9-F649-47B8-87E6-CF9185A53700"
+#define BLE_SERIAL_COMMAND_COMMAND_TO_MOBILE_DEVICE_UUID "1AD18BD9-F649-47B8-87E6-CF9185A53701"
+
+#define VERSION_NUMBER "Version: 3.11.3\n"
+#define BLE_API_VERSION "1.0.0"
+#define SOFTWARE_VERSION "3.11.3"
 
 /*------------------------------------------------------------------------------------------------------------------------------------------------------*/
 
@@ -177,6 +191,10 @@ bool calculateTargetCoordinate(void);
 void interpolateTargetPoint(FloatCoordinate);
 void toggleAcceleration(void);
 void scaleKeyframeSpeed(float);
+void processCommand(char, int, float);
+void checkBle();
+//void writeLogToBle(String);
+//void writeLog(String);
 
 /*------------------------------------------------------------------------------------------------------------------------------------------------------*/
 

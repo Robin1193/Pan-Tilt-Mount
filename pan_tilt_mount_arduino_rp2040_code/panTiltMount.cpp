@@ -4,6 +4,7 @@
 #include <MultiStepper.h> //Library to control multiple coordinated stepper motors http://www.airspayce.com/mikem/arduino/AccelStepper/classMultiStepper.html#details
 //#include <EEPROM.h> //To be able to save values when powered off
 #include <WiFiNINA.h>
+#include <ArduinoBLE.h>
 
 /*--------------------------------------------------------------------------------------------------------------------------------------------------------*/
 
@@ -15,6 +16,19 @@ AccelStepper stepper_slider = AccelStepper(1, PIN_STEP_SLIDER, PIN_DIRECTION_SLI
 MultiStepper multi_stepper;
 
 KeyframeElement keyframe_array[KEYFRAME_ARRAY_LENGTH];
+
+
+BLEService bleGeneralInformationService(BLE_GENERAL_INFO_SERVICE_UUID);
+BLEService bleSerialCommandService(BLE_SERIAL_COMMAND_SERVICE_UUID);
+
+BLECharacteristic bleGeneralInfoBleApiVersionCharacteristic(BLE_GENERAL_INFO_BLE_API_VERSION_UUID, BLERead, BLE_API_VERSION);
+BLECharacteristic bleGeneralInfoSoftwareVersionCharacteristic(BLE_GENERAL_INFO_SOFTWARE_VERSION_UUID, BLERead, VERSION_NUMBER);
+BLECharacteristic bleGeneralInfoDeviceNameCharacteristic(BLE_GENERAL_INFO_DEVICE_NAME_UUID, BLERead, BLE_DEVICE_NAME);
+
+BLECharacteristic bleSerialCommandFromMobileDeviceService(BLE_SERIAL_COMMAND_COMMAND_FROM_MOBILE_DEVICE_UUID, BLEWrite, 20, false);
+BLECharacteristic bleSerialCommandToMobileDeviceService(BLE_SERIAL_COMMAND_COMMAND_TO_MOBILE_DEVICE_UUID, BLERead | BLENotify, 50, false);
+
+BLEDevice peripheral;
 
 int keyframe_elements = 0;
 int current_keyframe_index = -1;
@@ -43,10 +57,37 @@ int slider_accel_increment_us = 3500;
 byte acceleration_enable_state = 0;
 FloatCoordinate intercept;
 
+char bleSerialCommandFromMobileDevice[20];
+bool bleConnected = false;
+
 /*--------------------------------------------------------------------------------------------------------------------------------------------------------*/
+
+void initBle() {
+    if (!BLE.begin()) {
+    Serial.println("starting BLE failed!");
+  }
+
+  BLE.setDeviceName(BLE_DEVICE_NAME);
+  BLE.setLocalName(BLE_DEVICE_NAME);
+  BLE.setAdvertisedService(bleGeneralInformationService);
+  BLE.setAdvertisedService(bleSerialCommandService);
+
+  bleGeneralInformationService.addCharacteristic(bleGeneralInfoBleApiVersionCharacteristic);
+  bleGeneralInformationService.addCharacteristic(bleGeneralInfoSoftwareVersionCharacteristic);
+  bleGeneralInformationService.addCharacteristic(bleGeneralInfoDeviceNameCharacteristic);
+
+  bleSerialCommandService.addCharacteristic(bleSerialCommandFromMobileDeviceService);
+  bleSerialCommandService.addCharacteristic(bleSerialCommandToMobileDeviceService);
+
+  BLE.addService(bleGeneralInformationService);
+  BLE.addService(bleSerialCommandService);
+
+  BLE.advertise();
+}
 
 void initPanTilt(void){
     Serial.begin(BAUD_RATE);
+    initBle();
     pinMode(PIN_MS1, OUTPUT);
     pinMode(PIN_MS2, OUTPUT);
     pinMode(PIN_MS3, OUTPUT);
@@ -175,8 +216,7 @@ void setStepMode(int newMode){ //Step modes for the TMC2208
 /*--------------------------------------------------------------------------------------------------------------------------------------------------------*/
 
 void panDegrees(float angle){
-    printi(F("Set panDegrees to "), angle);
-    printi(F("acceleration_enable_state "), acceleration_enable_state);
+    printi(F("Set panDegrees to "),angle);
     target_position[0] = panDegreesToSteps(angle);
     if(acceleration_enable_state == 0){
         multi_stepper.moveTo(target_position);
@@ -191,7 +231,6 @@ void panDegrees(float angle){
 
 void tiltDegrees(float angle){
     printi(F("Set tiltDegrees to "), angle);
-    printi(F("acceleration_enable_state "), acceleration_enable_state);
     target_position[1] = tiltDegreesToSteps(angle);
     if(acceleration_enable_state == 0){
         multi_stepper.moveTo(target_position);
@@ -252,7 +291,7 @@ void printKeyframeElements(void){
         printi(F("Pan Speed: "), panStepsToDegrees(keyframe_array[row].panSpeed), 3, F(" º/s\t"));
         printi(F("Tilt Speed: "), tiltStepsToDegrees(keyframe_array[row].tiltSpeed), 3, F(" º/s\t"));  
         printi(F("Slider Speed: "), sliderStepsToMillimetres(keyframe_array[row].sliderSpeed), 3, F(" mm/s\t"));      
-        printi(F("Delay: "), keyframe_array[row].msDelay, F("ms |\n"));    
+        printi(F("Delay: "), keyframe_array[row].msDelay, F("ms |\n"));  
     }
     printi(F("\n"));
 }
@@ -987,39 +1026,8 @@ void scaleKeyframeSpeed(float scaleFactor){
 
 /*--------------------------------------------------------------------------------------------------------------------------------------------------------*/
 
-void serialData(void){
-    char instruction = Serial.read();
-    if(instruction == INSTRUCTION_BYTES_SLIDER_PAN_TILT_SPEED){
-        int count = 0;
-        while(Serial.available() < 6){//Wait for 6 bytes to be available. Breaks after ~20ms if bytes are not received.
-                delayMicroseconds(200); 
-                count++;
-                if(count > 100){
-                    serialFlush();//Clear the serial buffer
-                    break;   
-                }
-            }
-            int sliderStepSpeed = (Serial.read() << 8) + Serial.read(); 
-            int panStepSpeed = (Serial.read() << 8) + Serial.read(); 
-            int tiltStepSpeed = (Serial.read() << 8) + Serial.read(); 
 
-            stepper_slider.setSpeed(sliderStepSpeed);
-            stepper_pan.setSpeed(panStepSpeed);
-            stepper_tilt.setSpeed(tiltStepSpeed);
-            stepper_slider.runSpeed();
-            stepper_pan.runSpeed();
-            stepper_tilt.runSpeed();
-    }
-    
-    delay(2); //wait to make sure all data in the serial message has arived 
-    memset(&stringText[0], 0, sizeof(stringText)); //clear the array
-    while(Serial.available()){//set elemetns of stringText to the serial values sent
-        char digit = Serial.read(); //read in a char
-        strncat(stringText, &digit, 1); //add digit to the end of the array
-    }
-    serialFlush();//Clear any excess data in the serial buffer
-    int serialCommandValueInt = atoi(stringText); //converts stringText to an int
-    float serialCommandValueFloat = atof(stringText); //converts stringText to a float
+void processCommand(char instruction, int serialCommandValueInt, float serialCommandValueFloat) {
     if(instruction == '+'){//The Bluetooth module sends a message starting with "+CONNECTING" which should be discarded.
         delay(100); //wait to make sure all data in the serial message has arived 
         serialFlush();//Clear any excess data in the serial buffer
@@ -1224,11 +1232,100 @@ void serialData(void){
     }
 }
 
+void serialData(void){
+    char instruction = Serial.read();
+    if(instruction == INSTRUCTION_BYTES_SLIDER_PAN_TILT_SPEED){
+        int count = 0;
+        while(Serial.available() < 6){//Wait for 6 bytes to be available. Breaks after ~20ms if bytes are not received.
+                delayMicroseconds(200); 
+                count++;
+                if(count > 100){
+                    serialFlush();//Clear the serial buffer
+                    break;   
+                }
+            }
+            int sliderStepSpeed = (Serial.read() << 8) + Serial.read(); 
+            int panStepSpeed = (Serial.read() << 8) + Serial.read(); 
+            int tiltStepSpeed = (Serial.read() << 8) + Serial.read(); 
+
+            stepper_slider.setSpeed(sliderStepSpeed);
+            stepper_pan.setSpeed(panStepSpeed);
+            stepper_tilt.setSpeed(tiltStepSpeed);
+            stepper_slider.runSpeed();
+            stepper_pan.runSpeed();
+            stepper_tilt.runSpeed();
+    }
+    
+    delay(2); //wait to make sure all data in the serial message has arived 
+    memset(&stringText[0], 0, sizeof(stringText)); //clear the array
+    while(Serial.available()){//set elemetns of stringText to the serial values sent
+        char digit = Serial.read(); //read in a char
+        strncat(stringText, &digit, 1); //add digit to the end of the array
+    }
+    serialFlush();//Clear any excess data in the serial buffer
+    int serialCommandValueInt = atoi(stringText); //converts stringText to an int
+    float serialCommandValueFloat = atof(stringText); //converts stringText to a float
+    processCommand(instruction, serialCommandValueInt, serialCommandValueFloat);
+}
+
+// Here is your subArray function..
+byte* subArray(byte* theArray,int itemSize,int startItem,int numItems) {
+
+   int   trace;
+   int   numBytes;
+   byte* newArray;
+   
+   numBytes = itemSize * numItems;
+   newArray = (byte*)malloc(numBytes);
+   if (newArray) {
+      trace = startItem * itemSize;
+      for (int i=0;i<numBytes;i++) {
+         newArray[i] = theArray[trace];
+         trace++;
+      }
+   }
+   return newArray;
+}
+
+void checkBle() {
+    peripheral = BLE.central();
+    if(peripheral) {
+      if(!bleConnected) {
+        printi(F("Connected to central: "));
+        printi(peripheral.address());
+      }
+        bleConnected = true;
+
+        // Read from Smartphone
+      if (bleSerialCommandFromMobileDeviceService.written()) {
+        memset(&bleSerialCommandFromMobileDevice[0], 0, sizeof(bleSerialCommandFromMobileDevice)); //clear the array
+        bleSerialCommandFromMobileDeviceService.readValue(bleSerialCommandFromMobileDevice, 20);
+        printi(F("Written Value: "));
+        printi(F(bleSerialCommandFromMobileDevice));
+
+
+        
+
+        char command = bleSerialCommandFromMobileDevice[0];
+        int serialCommandValueInt = atoi((char*)subArray((byte*)bleSerialCommandFromMobileDevice,sizeof(char),1, 19));
+        float serialCommandValueFloat = atof((char*)subArray((byte*)bleSerialCommandFromMobileDevice,sizeof(char),1, 19));
+
+        processCommand(command, serialCommandValueInt, serialCommandValueFloat);
+      }
+    } else {
+      if(bleConnected) {
+        printi(F("BLE Disconnected."));
+      }
+      bleConnected = false;
+    }
+}
+
 /*--------------------------------------------------------------------------------------------------------------------------------------------------------*/
 
 void mainLoop(void){
     while(1){
         if(Serial.available()) serialData();
+        checkBle();
         multi_stepper.run();
     }
 }
