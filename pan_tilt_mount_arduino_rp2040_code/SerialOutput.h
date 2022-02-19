@@ -9,8 +9,8 @@
 
 class SerialOutput {
 public:
-	SerialOutput(int baudRate);
-    
+    SerialOutput();
+    void initSerialLog(int baudRate);
     void logSerial(String text);
     void logSerial(String text, char c, String endText = "\n");
     void logSerial(short num, String endText = "\n");
@@ -34,9 +34,6 @@ public:
     void serialData();
     bool available();
 
-private:
-    SerialOutput();
-    void initSerialLog(int baudRate);
 };
 
 #endif

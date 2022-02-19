@@ -3,11 +3,11 @@
 #include "SerialOutput.h"
 #include "Log.h"
 #include "BluetoothLowEnergieService.h"
-#include <Iibrary.h> //A library I created for Arduino that contains some simple functions I commonly use. Library available at: https://github.com/isaac879/Iibrary
 #include <AccelStepper.h> //Library to control the stepper motors http://www.airspayce.com/mikem/arduino/AccelStepper/index.html
 #include <MultiStepper.h> //Library to control multiple coordinated stepper motors http://www.airspayce.com/mikem/arduino/AccelStepper/classMultiStepper.html#details
 //#include <EEPROM.h> //To be able to save values when powered off
 #include <WiFiNINA.h>
+#include "HelpFunctions.h"
 
 
 /*--------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -21,7 +21,7 @@ MultiStepper multi_stepper;
 
 KeyframeElement keyframe_array[KEYFRAME_ARRAY_LENGTH];
 
-SerialOutput serialOutput(BAUD_RATE);
+SerialOutput serialOutput;
 BluetoothLowEnergieService ble(&serialOutput);
 Log logger(&serialOutput, &ble);
 
@@ -55,6 +55,7 @@ FloatCoordinate intercept;
 /*--------------------------------------------------------------------------------------------------------------------------------------------------------*/
 
 void initPanTilt(void){
+    serialOutput.initSerialLog(BAUD_RATE);
     ble.initBle();
     pinMode(PIN_MS1, OUTPUT);
     pinMode(PIN_MS2, OUTPUT);
@@ -398,13 +399,13 @@ bool findHome(void){
 /*--------------------------------------------------------------------------------------------------------------------------------------------------------*/
 
 float getBatteryVoltage(void){ //TODO: Calibrate the values for your battery
-    return mapNumber(analogRead(PIN_INPUT_VOLTAGE), 0, 1007, 0, 12.6);//1007 = 12.6V
+    return HelpFunctions::mapNumber(analogRead(PIN_INPUT_VOLTAGE), 0, 1007, 0, 12.6);//1007 = 12.6V
 }
 
 /*--------------------------------------------------------------------------------------------------------------------------------------------------------*/
 
 float getBatteryPercentage(void){ //TODO: Calibrate the values for your battery
-    return boundFloat(mapNumber(getBatteryVoltage(), 9, 12.6, 0, 100), 0, 100); //780 = 9V = 0%, 1023 = 12.6V = 100%
+    return boundFloat(HelpFunctions::mapNumber(getBatteryVoltage(), 9, 12.6, 0, 100), 0, 100); //780 = 9V = 0%, 1023 = 12.6V = 100%
 }
 
 /*--------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -869,14 +870,14 @@ bool calculateTargetCoordinate(void){
     LinePoints line0;
     line0.x0 = sliderStepsToMillimetres(keyframe_array[0].sliderStepCount);
     line0.y0 = 0;
-    line0.x1 = line0.x0 + cos(degToRads(panStepsToDegrees(keyframe_array[0].panStepCount)));
-    line0.y1 = sin(degToRads(panStepsToDegrees(keyframe_array[0].panStepCount)));
+    line0.x1 = line0.x0 + cos(HelpFunctions::degToRads(panStepsToDegrees(keyframe_array[0].panStepCount)));
+    line0.y1 = sin(HelpFunctions::degToRads(panStepsToDegrees(keyframe_array[0].panStepCount)));
     
     LinePoints line1;
     line1.x0 = sliderStepsToMillimetres(keyframe_array[1].sliderStepCount);
     line1.y0 = 0;
-    line1.x1 = line1.x0 + cos(degToRads(panStepsToDegrees(keyframe_array[1].panStepCount)));
-    line1.y1 = sin(degToRads(panStepsToDegrees(keyframe_array[1].panStepCount)));
+    line1.x1 = line1.x0 + cos(HelpFunctions::degToRads(panStepsToDegrees(keyframe_array[1].panStepCount)));
+    line1.y1 = sin(HelpFunctions::degToRads(panStepsToDegrees(keyframe_array[1].panStepCount)));
     
     if((line0.x1 - line0.x0) != 0){
         m1 = (line0.y1 - line0.y0) / (line0.x1 - line0.x0);
@@ -904,7 +905,7 @@ bool calculateTargetCoordinate(void){
         intercept.x = (c2 - c1) / (m1 - m2);
         intercept.y = m1 * intercept.x + c1;
     }
-    intercept.z = tan(degToRads(tiltStepsToDegrees(keyframe_array[0].tiltStepCount))) * sqrt(pow(intercept.x - sliderStepsToMillimetres(keyframe_array[0].sliderStepCount), 2) + pow(intercept.y, 2));
+    intercept.z = tan(HelpFunctions::degToRads(tiltStepsToDegrees(keyframe_array[0].tiltStepCount))) * sqrt(pow(intercept.x - sliderStepsToMillimetres(keyframe_array[0].sliderStepCount), 2) + pow(intercept.y, 2));
     if(((panStepsToDegrees(keyframe_array[0].panStepCount) > 0 && panStepsToDegrees(keyframe_array[1].panStepCount) > 0) && intercept.y < 0)
     || ((panStepsToDegrees(keyframe_array[0].panStepCount) < 0 && panStepsToDegrees(keyframe_array[1].panStepCount) < 0) && intercept.y > 0) || intercept.y == 0){ //Checks that the intercept point is in the direction the camera was pointing and not on the opposite side behind the camera.
         logger.log("Invalid intercept.\n");
@@ -934,21 +935,21 @@ void interpolateTargetPoint(FloatCoordinate targetPoint, int repeat){ //The firs
     for(int j = 0; (j < repeat || (repeat == 0 && j == 0)); j++){
         for(int i = 0; i <= numberOfIncrements; i++){
             x = targetPoint.x - (sliderStartPos + increment * i);
-            panAngle = radsToDeg(atan2(targetPoint.y, x));
-            tiltAngle = radsToDeg(atan2(targetPoint.z, sqrt(pow(x, 2) + ySqared)));
+            panAngle = HelpFunctions::radsToDeg(atan2(targetPoint.y, x));
+            tiltAngle = HelpFunctions::radsToDeg(atan2(targetPoint.z, sqrt(pow(x, 2) + ySqared)));
             setTargetPositions(panAngle, tiltAngle, sliderStartPos + increment * i);
             multi_stepper.runSpeedToPosition();//blocking move to the next position
         }
         x = targetPoint.x - sliderEndPos;
-        panAngle = radsToDeg(atan2(targetPoint.y, x));
-        tiltAngle = radsToDeg(atan2(targetPoint.z, sqrt(pow(x, 2) + ySqared)));
+        panAngle = HelpFunctions::radsToDeg(atan2(targetPoint.y, x));
+        tiltAngle = HelpFunctions::radsToDeg(atan2(targetPoint.z, sqrt(pow(x, 2) + ySqared)));
         setTargetPositions(panAngle, tiltAngle, sliderEndPos);
         multi_stepper.runSpeedToPosition();//blocking move to the next position
 
         for(int i = numberOfIncrements; (i >= 0 && repeat > 0); i--){
             x = targetPoint.x - (sliderStartPos + increment * i);
-            panAngle = radsToDeg(atan2(targetPoint.y, x));
-            tiltAngle = radsToDeg(atan2(targetPoint.z, sqrt(pow(x, 2) + ySqared)));
+            panAngle = HelpFunctions::radsToDeg(atan2(targetPoint.y, x));
+            tiltAngle = HelpFunctions::radsToDeg(atan2(targetPoint.z, sqrt(pow(x, 2) + ySqared)));
             setTargetPositions(panAngle, tiltAngle, sliderStartPos + increment * i);
             multi_stepper.runSpeedToPosition();//blocking move to the next position
         }
