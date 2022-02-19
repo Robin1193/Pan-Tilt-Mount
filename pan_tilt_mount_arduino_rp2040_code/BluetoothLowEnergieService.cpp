@@ -14,11 +14,9 @@ BluetoothLowEnergieService::BluetoothLowEnergieService(SerialOutput* output): se
 
 void BluetoothLowEnergieService::initBle() {
     if (!BLE.begin()) {
-      /*
       if(serialOutput) {
         serialOutput->logSerial("starting BLE failed!");
       }
-      */
      ;
   } else {
     BLE.setDeviceName(BLE_DEVICE_NAME);
@@ -45,22 +43,18 @@ bool BluetoothLowEnergieService::isBleConnected() {
   peripheral = BLE.central();
     if(peripheral) {
       if(!bleConnected) {
-        /*
         if(serialOutput) {
           serialOutput->logSerial("Connected to central: ");
           serialOutput->logSerial(peripheral.address());
         }
-        */
       }
       bleConnected = true;
       return true;
     } else {
       if(bleConnected) {
-        /*
         if(serialOutput) {
           serialOutput->logSerial("BLE Disconnected.");
         }
-        */
       }
       bleConnected = false;
       return false;
@@ -77,12 +71,10 @@ String BluetoothLowEnergieService::getSerialCommandFromMobileDevice() {
     
 
     String serialCommand(bleSerialCommandFromMobileDevice);
-    /*
     if(serialOutput) {
       serialOutput->logSerial("Written Value: ");
       serialOutput->logSerial(serialCommand);
     }
-    */
     return String(serialCommand);
 }
 

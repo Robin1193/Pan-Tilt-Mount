@@ -27,7 +27,6 @@ Log logger(&serialOutput, &ble);
 
 int keyframe_elements = 0;
 int current_keyframe_index = -1;
-char stringText[MAX_STRING_LENGTH + 1];
 float pan_steps_per_degree = (200.0 * SIXTEENTH_STEP * PAN_GEAR_RATIO) / 360.0; //Stepper motor has 200 steps per 360 degrees
 float tilt_steps_per_degree = (200.0 * SIXTEENTH_STEP * TILT_GEAR_RATIO) / 360.0; //Stepper motor has 200 steps per 360 degrees
 float slider_steps_per_millimetre = (200.0 * SIXTEENTH_STEP) / (SLIDER_PULLEY_TEETH * 2); //Stepper motor has 200 steps per 360 degrees, the timing pully has 36 teeth and the belt has a pitch of 2mm
@@ -995,7 +994,6 @@ void scaleKeyframeSpeed(float scaleFactor){
 void processCommand(char instruction, int serialCommandValueInt, float serialCommandValueFloat) {
     if(instruction == '+'){//The Bluetooth module sends a message starting with "+CONNECTING" which should be discarded.
         delay(100); //wait to make sure all data in the serial message has arived 
-        serialOutput.serialFlush();//Clear any excess data in the serial buffer
         return;
     }
     switch(instruction){        
@@ -1198,39 +1196,27 @@ void processCommand(char instruction, int serialCommandValueInt, float serialCom
 }
 
 
-// Here is your subArray function..
-byte* subArray(byte* theArray,int itemSize,int startItem,int numItems) {
-   int   trace;
-   int   numBytes;
-   byte* newArray;
-   
-   numBytes = itemSize * numItems;
-   newArray = (byte*)malloc(numBytes);
-   if (newArray) {
-      trace = startItem * itemSize;
-      for (int i=0;i<numBytes;i++) {
-         newArray[i] = theArray[trace];
-         trace++;
-      }
-   }
-   return newArray;
+void processCommand(String serialCommand) {
+    char command = serialCommand[0];
+    int serialCommandValueInt = atoi(serialCommand.substring(1, 19) .c_str());
+    float serialCommandValueFloat = atof(serialCommand.substring(1, 19) .c_str());
+
+    processCommand(command, serialCommandValueInt, serialCommandValueFloat);
+}
+
+void checkSerial() {
+    if(serialOutput.dataAvailable()) {
+        String serialCommand = serialOutput.serialData();
+        processCommand(serialCommand);
+    }
 }
 
 void checkBle() {
-
     if(ble.isBleConnected()) {
           // Read from Smartphone
       if (ble.wasSerialCommandFromMobileDeviceReceived()) {
-          String serialCommand = ble.getSerialCommandFromMobileDevice();
-
-            char command = serialCommand[0];
-            int serialCommandValueInt = atoi(serialCommand.substring(1, 19) .c_str());
-            float serialCommandValueFloat = atof(serialCommand.substring(1, 19) .c_str());
-
-            //int serialCommandValueInt = atoi((char*)subArray((byte*)bleSerialCommandFromMobileDevice,sizeof(char),1, 19));
-            //float serialCommandValueFloat = atof((char*)subArray((byte*)bleSerialCommandFromMobileDevice,sizeof(char),1, 19));
-
-            processCommand(command, serialCommandValueInt, serialCommandValueFloat);
+            String serialCommand = ble.getSerialCommandFromMobileDevice();
+            processCommand(serialCommand);
         }
     }
 }
@@ -1239,9 +1225,7 @@ void checkBle() {
 
 void mainLoop(void){
     while(1){
-        if(serialOutput.available()) {
-            serialOutput.serialData();
-        }
+        checkSerial();
         checkBle();
         multi_stepper.run();
     }

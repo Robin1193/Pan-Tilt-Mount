@@ -7,6 +7,8 @@
 #include "WProgram.h"
 #endif
 
+#include "GlobalSettings.h"
+
 class SerialOutput {
 public:
     SerialOutput();
@@ -30,9 +32,13 @@ public:
     void logSerial(String text, float num, int dp = 3, String endText = "\n");
     void logSerial(String text, double num, int dp = 3, String endText = "\n");
 
+    String serialData();
+    bool dataAvailable();
+
+private:
     void serialFlush();
-    void serialData();
-    bool available();
+
+    char stringText[MAX_STRING_LENGTH + 1];
 
 };
 
