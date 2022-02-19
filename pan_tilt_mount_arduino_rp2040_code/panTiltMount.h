@@ -60,7 +60,7 @@ void printEEPROM(void);
 void setEEPROMVariables(void);
 void invertPanDirection(bool);
 void invertTiltDirection(bool);
-int setTargetPositions(float, float, float);
+void setTargetPositions(float, float, float);
 void toggleAutoHoming(void);
 void triggerCameraShutter(void);
 void panoramiclapseInterpolation(float, float, float, float, float, float, float, unsigned long);

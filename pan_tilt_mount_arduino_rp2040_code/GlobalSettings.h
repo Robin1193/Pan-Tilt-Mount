@@ -10,7 +10,6 @@
 #define PIN_SLIDER_HALL A3
 #define PIN_INPUT_VOLTAGE A6
 
-
 #define PIN_MS1 11
 #define PIN_MS2 10
 #define PIN_MS3 9

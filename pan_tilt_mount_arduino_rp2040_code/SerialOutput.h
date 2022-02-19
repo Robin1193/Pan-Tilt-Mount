@@ -30,7 +30,12 @@ public:
     void logSerial(String text, float num, int dp = 3, String endText = "\n");
     void logSerial(String text, double num, int dp = 3, String endText = "\n");
 
+    void serialFlush();
+    void serialData();
+    bool available();
+
 private:
+    SerialOutput();
     void initSerialLog(int baudRate);
 };
 

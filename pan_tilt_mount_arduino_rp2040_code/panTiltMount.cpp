@@ -1,6 +1,7 @@
 #include "PanTiltMount.h"
 #include "GlobalSettings.h"
 #include "SerialOutput.h"
+#include "Log.h"
 #include "BluetoothLowEnergieService.h"
 #include <Iibrary.h> //A library I created for Arduino that contains some simple functions I commonly use. Library available at: https://github.com/isaac879/Iibrary
 #include <AccelStepper.h> //Library to control the stepper motors http://www.airspayce.com/mikem/arduino/AccelStepper/index.html
@@ -22,6 +23,7 @@ KeyframeElement keyframe_array[KEYFRAME_ARRAY_LENGTH];
 
 SerialOutput serialOutput(BAUD_RATE);
 BluetoothLowEnergieService ble(&serialOutput);
+Log logger(&serialOutput, &ble);
 
 int keyframe_elements = 0;
 int current_keyframe_index = -1;
@@ -64,12 +66,14 @@ void initPanTilt(void){
     pinMode(PIN_STEP_TILT, OUTPUT);
     pinMode(PIN_DIRECTION_SLIDER, OUTPUT);
     pinMode(PIN_STEP_SLIDER, OUTPUT);
+  
     pinMode(PIN_PAN_HALL, INPUT_PULLUP);
     pinMode(PIN_TILT_HALL, INPUT_PULLUP);
     pinMode(PIN_SLIDER_HALL, INPUT_PULLUP);
     pinMode(PIN_SHUTTER_TRIGGER, OUTPUT);
     digitalWrite(PIN_SHUTTER_TRIGGER, LOW);
     //setEEPROMVariables();
+
     setStepMode(step_mode); //steping mode
     stepper_pan.setMaxSpeed(panDegreesToSteps(pan_max_speed));
     stepper_tilt.setMaxSpeed(tiltDegreesToSteps(tilt_max_speed));
@@ -77,22 +81,25 @@ void initPanTilt(void){
     stepper_pan.setAcceleration(5000);
     stepper_tilt.setAcceleration(5000);
     stepper_slider.setAcceleration(5000);
+
     invertPanDirection(invert_pan);
     invertTiltDirection(invert_tilt);
     invertSliderDirection(invert_slider);
+
     multi_stepper.addStepper(stepper_pan);
     multi_stepper.addStepper(stepper_tilt);
     multi_stepper.addStepper(stepper_slider);
+
     digitalWrite(PIN_ENABLE, LOW); //Enable the stepper drivers
 //    if(homing_mode == 1){
-//        serialOutput.logSerial(F("Homing\n"));
+//        logger.log(F("Homing\n"));
 //        if(findHome()){
-//            serialOutput.logSerial(F("Complete\n"));
+//            logger.log(F("Complete\n"));
 //        }
 //        else{
 //            stepper_pan.setCurrentPosition(0);
 //            stepper_tilt.setCurrentPosition(0);
-//            serialOutput.logSerial(F("Error homing\n"));
+//            logger.log(F("Error homing\n"));
 //        }
 //    }
 }
@@ -111,23 +118,15 @@ float boundFloat(float value, float lower, float upper){
 
 /*--------------------------------------------------------------------------------------------------------------------------------------------------------*/
 
-void serialFlush(void){
-    while(Serial.available() > 0){
-        char c = Serial.read();
-    }
-} 
-
-/*--------------------------------------------------------------------------------------------------------------------------------------------------------*/
-
 void enableSteppers(void){
     if(enable_state == false){
         digitalWrite(PIN_ENABLE, LOW); //Enable the stepper drivers
         enable_state = true;
-        serialOutput.logSerial("Enabled\n");
+        logger.log("Enabled\n");
     } else {
         digitalWrite(PIN_ENABLE, HIGH); //Disabe the stepper drivers
         enable_state = false;
-        serialOutput.logSerial("Disabled\n");
+        logger.log("Disabled\n");
     }
 }
 
@@ -157,7 +156,7 @@ void setStepMode(int newMode){ //Step modes for the TMC2208
         digitalWrite(PIN_MS3, HIGH);
     }
     else{ //If an invalid step mode was entered.
-        serialOutput.logSerial("Invalid mode. Enter 2, 4, 8 or 16\n");
+        logger.log("Invalid mode. Enter 2, 4, 8 or 16\n");
         return;
     }
     
@@ -174,14 +173,14 @@ void setStepMode(int newMode){ //Step modes for the TMC2208
     stepper_tilt.setMaxSpeed(tiltDegreesToSteps(tilt_max_speed));
     stepper_slider.setMaxSpeed(sliderMillimetresToSteps(slider_max_speed));
     step_mode = newMode;
-    serialOutput.logSerial("Set to ", step_mode, " step mode.\n");
+    logger.log("Set to ", step_mode, " step mode.\n");
     clearKeyframes();
 }
 
 /*--------------------------------------------------------------------------------------------------------------------------------------------------------*/
 
 void panDegrees(float angle){
-    serialOutput.logSerial("Set panDegrees to ",angle);
+    logger.log("Set panDegrees to ",angle);
     target_position[0] = panDegreesToSteps(angle);
     if(acceleration_enable_state == 0){
         multi_stepper.moveTo(target_position);
@@ -189,13 +188,13 @@ void panDegrees(float angle){
     else{
         stepper_pan.setCurrentPosition(stepper_pan.currentPosition());
         stepper_pan.runToNewPosition(panDegreesToSteps(angle));
-    }    
+    } 
 }
 
 /*--------------------------------------------------------------------------------------------------------------------------------------------------------*/
 
 void tiltDegrees(float angle){
-    serialOutput.logSerial("Set tiltDegrees to ", angle);
+    logger.log("Set tiltDegrees to ", angle);
     target_position[1] = tiltDegreesToSteps(angle);
     if(acceleration_enable_state == 0){
         multi_stepper.moveTo(target_position);
@@ -233,7 +232,7 @@ float sliderStepsToMillimetres(long steps){
 /*--------------------------------------------------------------------------------------------------------------------------------------------------------*/
 
 void sliderMoveTo(float mm){
-    serialOutput.logSerial("Move slider to ", mm);
+    logger.log("Move slider to ", mm);
     target_position[2] = sliderMillimetresToSteps(mm);
     if(acceleration_enable_state == 0){ 
         multi_stepper.moveTo(target_position);
@@ -247,49 +246,49 @@ void sliderMoveTo(float mm){
 /*--------------------------------------------------------------------------------------------------------------------------------------------------------*/
 
 void printKeyframeElements(void){
-    serialOutput.logSerial("Keyframe index: ", current_keyframe_index, "\n");
+    logger.log("Keyframe index: ", current_keyframe_index, "\n");
     for(int row = 0; row < keyframe_elements; row++){
-        serialOutput.logSerial("", row, "\t|");
-        serialOutput.logSerial(" Pan: ", panStepsToDegrees(keyframe_array[row].panStepCount), 3, "º\t");
-        serialOutput.logSerial("Tilt: ", tiltStepsToDegrees(keyframe_array[row].tiltStepCount), 3, "º\t");
-        serialOutput.logSerial("Slider: ", sliderStepsToMillimetres(keyframe_array[row].sliderStepCount), 3, "mm\t");
-        serialOutput.logSerial("Pan Speed: ", panStepsToDegrees(keyframe_array[row].panSpeed), 3, " º/s\t");
-        serialOutput.logSerial("Tilt Speed: ", tiltStepsToDegrees(keyframe_array[row].tiltSpeed), 3, " º/s\t");  
-        serialOutput.logSerial("Slider Speed: ", sliderStepsToMillimetres(keyframe_array[row].sliderSpeed), 3, " mm/s\t");      
-        serialOutput.logSerial("Delay: ", keyframe_array[row].msDelay, "ms |\n");  
+        logger.log("", row, "\t|");
+        logger.log(" Pan: ", panStepsToDegrees(keyframe_array[row].panStepCount), 3, "º\t");
+        logger.log("Tilt: ", tiltStepsToDegrees(keyframe_array[row].tiltStepCount), 3, "º\t");
+        logger.log("Slider: ", sliderStepsToMillimetres(keyframe_array[row].sliderStepCount), 3, "mm\t");
+        logger.log("Pan Speed: ", panStepsToDegrees(keyframe_array[row].panSpeed), 3, " º/s\t");
+        logger.log("Tilt Speed: ", tiltStepsToDegrees(keyframe_array[row].tiltSpeed), 3, " º/s\t");  
+        logger.log("Slider Speed: ", sliderStepsToMillimetres(keyframe_array[row].sliderSpeed), 3, " mm/s\t");      
+        logger.log("Delay: ", keyframe_array[row].msDelay, "ms |\n");  
     }
-    serialOutput.logSerial("\n");
+    logger.log("\n");
 }
 
 /*--------------------------------------------------------------------------------------------------------------------------------------------------------*/
 
 void debugReport(void){
-//    serialOutput.logSerial(F("Status\n"));
-    serialOutput.logSerial("Status\nEnable state: ", enable_state);
-//    serialOutput.logSerial(F("Step Mode: "), step_mode);
-    serialOutput.logSerial("Pan angle: ", panStepsToDegrees(stepper_pan.currentPosition()), 3, "º\n");
-    serialOutput.logSerial("Tilt angle: ", tiltStepsToDegrees(stepper_tilt.currentPosition()), 3, "º\n"); 
-    serialOutput.logSerial("Slider position: ", sliderStepsToMillimetres(stepper_slider.currentPosition()), 3, "mm\n");  
-    serialOutput.logSerial("Pan max steps/s: ", stepper_pan.maxSpeed());
-    serialOutput.logSerial("Tilt max steps/s: ", stepper_tilt.maxSpeed());
-    serialOutput.logSerial("Slider max steps/s: ", stepper_slider.maxSpeed());
-    serialOutput.logSerial("Pan max speed: ", panStepsToDegrees(stepper_pan.maxSpeed()), 3, "º/s\n");
-    serialOutput.logSerial("Tilt max speed: ", tiltStepsToDegrees(stepper_tilt.maxSpeed()), 3, "º/s\n");
-    serialOutput.logSerial("Slider max speed: ", sliderStepsToMillimetres(stepper_slider.maxSpeed()), 3, "mm/s\n");        
-    //serialOutput.logSerial("Battery: ", getBatteryPercentage(), 3, "%\n");
-    serialOutput.logSerial("Battery: ", getBatteryVoltage(), 3, "V\n");
-//    serialOutput.logSerial("Homing mode: ", homing_mode);    
-    serialOutput.logSerial("Angle between pics: ", degrees_per_picture, 3, "º\n");
-    serialOutput.logSerial("Panoramiclapse delay between pics: ", delay_ms_between_pictures, "ms\n");   
-    serialOutput.logSerial(VERSION_NUMBER);
+    logger.log("Status\n");
+    logger.log("Status\nEnable state: ", enable_state);
+//    logger.log(F("Step Mode: "), step_mode);
+    //logger.log("Pan angle: ", panStepsToDegrees(stepper_pan.currentPosition()), 3, "º\n");
+    //logger.log("Tilt angle: ", tiltStepsToDegrees(stepper_tilt.currentPosition()), 3, "º\n"); 
+    //logger.log("Slider position: ", sliderStepsToMillimetres(stepper_slider.currentPosition()), 3, "mm\n");  
+    //logger.log("Pan max steps/s: ", stepper_pan.maxSpeed());
+    //logger.log("Tilt max steps/s: ", stepper_tilt.maxSpeed());
+    //logger.log("Slider max steps/s: ", stepper_slider.maxSpeed());
+    //logger.log("Pan max speed: ", panStepsToDegrees(stepper_pan.maxSpeed()), 3, "º/s\n");
+    //logger.log("Tilt max speed: ", tiltStepsToDegrees(stepper_tilt.maxSpeed()), 3, "º/s\n");
+    //logger.log("Slider max speed: ", sliderStepsToMillimetres(stepper_slider.maxSpeed()), 3, "mm/s\n");        
+    //logger.log("Battery: ", getBatteryPercentage(), 3, "%\n");
+    logger.log("Battery: ", getBatteryVoltage(), 3, "V\n");
+//    logger.log("Homing mode: ", homing_mode);    
+    logger.log("Angle between pics: ", degrees_per_picture, 3, "º\n");
+    logger.log("Panoramiclapse delay between pics: ", delay_ms_between_pictures, "ms\n");   
+    logger.log(VERSION_NUMBER);
     //printEEPROM();
     printKeyframeElements();
-//    serialOutput.logSerial("\n");
+//    logger.log("\n");
 }
 
 /*--------------------------------------------------------------------------------------------------------------------------------------------------------*/
 
-int setTargetPositions(float panDeg, float tiltDeg, float sliderMillimetre){
+void setTargetPositions(float panDeg, float tiltDeg, float sliderMillimetre){
     target_position[0] = panDegreesToSteps(panDeg);
     target_position[1] = tiltDegreesToSteps(tiltDeg);
     target_position[2] = sliderMillimetresToSteps(sliderMillimetre);
@@ -445,11 +444,11 @@ int addPosition(void){
         keyframe_array[keyframe_elements].msDelay = 0;      
         current_keyframe_index = keyframe_elements;
         keyframe_elements++;//increment the index
-        serialOutput.logSerial("Added at index: ", current_keyframe_index);
+        logger.log("Added at index: ", current_keyframe_index);
         return 0;
     }
     else{
-        serialOutput.logSerial("Max number of keyframes reached\n");
+        logger.log("Max number of keyframes reached\n");
     }
     return -1;
 }
@@ -459,7 +458,7 @@ int addPosition(void){
 void clearKeyframes(void){
     keyframe_elements = 0;
     current_keyframe_index = -1;
-    serialOutput.logSerial("Keyframes cleared\n");
+    logger.log("Keyframes cleared\n");
 }
 
 /*--------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -603,7 +602,7 @@ void executeMoves(int repeat){
 //        if(getBatteryVoltage() < 9.5){//9.5V is used as the cut off to allow for inaccuracies and be on the safe side.
 //            delay(200);
 //            if(getBatteryVoltage() < 9.5){//Check voltage is still low and the first wasn't a miscellaneous reading
-//                serialOutput.logSerial(F("Battery low"));
+//                logger.log(F("Battery low"));
 //                while(1){}//loop and do nothing
 //            }
 //        }
@@ -632,15 +631,15 @@ void editKeyframe(void){
     keyframe_array[current_keyframe_index].tiltSpeed = stepper_tilt.maxSpeed();
     keyframe_array[current_keyframe_index].sliderSpeed = stepper_slider.maxSpeed();
     
-    serialOutput.logSerial("Edited index: ", current_keyframe_index);
+    logger.log("Edited index: ", current_keyframe_index);
 }
 
 /*--------------------------------------------------------------------------------------------------------------------------------------------------------*/
 
 void editDelay(unsigned int ms){
     keyframe_array[current_keyframe_index].msDelay = ms;
-    serialOutput.logSerial(ms, "");
-    serialOutput.logSerial("ms delay added at index: ", current_keyframe_index);
+    logger.log(ms, "");
+    logger.log("ms delay added at index: ", current_keyframe_index);
 }
 
 /*--------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -648,14 +647,14 @@ void editDelay(unsigned int ms){
 void addDelay(unsigned int ms){
     addPosition();
     keyframe_array[current_keyframe_index].msDelay = ms;
-    serialOutput.logSerial(ms, "");
-    serialOutput.logSerial("ms delay added at index: ", current_keyframe_index);
+    logger.log(ms, "");
+    logger.log("ms delay added at index: ", current_keyframe_index);
 }
 
 /*--------------------------------------------------------------------------------------------------------------------------------------------------------*/
 
 void invertPanDirection(bool invert){
-    serialOutput.logSerial("Pan inversion: ", invert);
+    logger.log("Pan inversion: ", invert);
     invert_pan = invert;
     stepper_pan.setPinsInverted(invert, false, false);
 }
@@ -663,7 +662,7 @@ void invertPanDirection(bool invert){
 /*--------------------------------------------------------------------------------------------------------------------------------------------------------*/
 
 void invertTiltDirection(bool invert){
-    serialOutput.logSerial("Tilt inversion: ", invert);
+    logger.log("Tilt inversion: ", invert);
     invert_tilt = invert;
     stepper_tilt.setPinsInverted(invert, false, false);
 }
@@ -671,7 +670,7 @@ void invertTiltDirection(bool invert){
 /*--------------------------------------------------------------------------------------------------------------------------------------------------------*/
 
 void invertSliderDirection(bool invert){
-    serialOutput.logSerial("Slider inversion: ", invert);
+    logger.log("Slider inversion: ", invert);
     invert_slider = invert;
     stepper_slider.setPinsInverted(invert, false, false);
 }
@@ -706,34 +705,34 @@ void printEEPROM(void){
     int itemp;
     float ftemp;
     long ltemp;
-//    serialOutput.logSerial(F("EEPROM:\n"));
+//    logger.log(F("EEPROM:\n"));
     EEPROM.get(EEPROM_ADDRESS_MODE, itemp);
-    serialOutput.logSerial("EEPROM:\nStep mode: ", itemp, "\n");
+    logger.log("EEPROM:\nStep mode: ", itemp, "\n");
     EEPROM.get(EEPROM_ADDRESS_PAN_MAX_SPEED, ftemp);
-    serialOutput.logSerial("Pan max: ", ftemp, 3, "º/s\n");
+    logger.log("Pan max: ", ftemp, 3, "º/s\n");
     EEPROM.get(EEPROM_ADDRESS_TILT_MAX_SPEED, ftemp);
-    serialOutput.logSerial("Tilt max: ", ftemp, 3, "º/s\n");
+    logger.log("Tilt max: ", ftemp, 3, "º/s\n");
     EEPROM.get(EEPROM_ADDRESS_SLIDER_MAX_SPEED, ftemp);
-    serialOutput.logSerial("Slider max: ", ftemp, 3, "mm/s\n"); 
+    logger.log("Slider max: ", ftemp, 3, "mm/s\n"); 
     EEPROM.get(EEPROM_ADDRESS_HALL_PAN_OFFSET, ftemp);
-    serialOutput.logSerial("Pan offset: ", ftemp, 3, "º\n");
+    logger.log("Pan offset: ", ftemp, 3, "º\n");
     EEPROM.get(EEPROM_ADDRESS_HALL_TILT_OFFSET, ftemp);
-    serialOutput.logSerial("Tilt offset: ", ftemp, 3, "º\n");
+    logger.log("Tilt offset: ", ftemp, 3, "º\n");
     EEPROM.get(EEPROM_ADDRESS_DEGREES_PER_PICTURE, ftemp);
-    serialOutput.logSerial("Angle between pics: ", ftemp, 3, " º\n");
+    logger.log("Angle between pics: ", ftemp, 3, " º\n");
     EEPROM.get(EEPROM_ADDRESS_PANORAMICLAPSE_DELAY, ltemp);
-    serialOutput.logSerial("Delay between pics: ", ltemp, "ms\n");   
-    serialOutput.logSerial("Pan invert: ", EEPROM.read(EEPROM_ADDRESS_INVERT_PAN));
-    serialOutput.logSerial("Tilt invert: ", EEPROM.read(EEPROM_ADDRESS_INVERT_TILT));
-    serialOutput.logSerial("Slider invert: ", EEPROM.read(EEPROM_ADDRESS_INVERT_SLIDER)); 
-    serialOutput.logSerial("Homing mode: ", EEPROM.read(EEPROM_ADDRESS_HOMING_MODE));
-    serialOutput.logSerial("Accel enable: ", EEPROM.read(EEPROM_ADDRESS_ACCELERATION_ENABLE));
+    logger.log("Delay between pics: ", ltemp, "ms\n");   
+    logger.log("Pan invert: ", EEPROM.read(EEPROM_ADDRESS_INVERT_PAN));
+    logger.log("Tilt invert: ", EEPROM.read(EEPROM_ADDRESS_INVERT_TILT));
+    logger.log("Slider invert: ", EEPROM.read(EEPROM_ADDRESS_INVERT_SLIDER)); 
+    logger.log("Homing mode: ", EEPROM.read(EEPROM_ADDRESS_HOMING_MODE));
+    logger.log("Accel enable: ", EEPROM.read(EEPROM_ADDRESS_ACCELERATION_ENABLE));
     EEPROM.get(EEPROM_ADDRESS_PAN_ACCEL_INCREMENT_DELAY, itemp);
-    serialOutput.logSerial("Pan accel delay: ", itemp, "us\n");
+    logger.log("Pan accel delay: ", itemp, "us\n");
     EEPROM.get(EEPROM_ADDRESS_TILT_ACCEL_INCREMENT_DELAY, itemp);
-    serialOutput.logSerial("Tilt accel delay: ", itemp, "us\n");
+    logger.log("Tilt accel delay: ", itemp, "us\n");
     EEPROM.get(EEPROM_ADDRESS_SLIDER_ACCEL_INCREMENT_DELAY, itemp);
-    serialOutput.logSerial("Slider accel delay: ", itemp, "us\n");
+    logger.log("Slider accel delay: ", itemp, "us\n");
 }
 */
 
@@ -765,10 +764,10 @@ void setEEPROMVariables(void){
 void setHoming(byte homingType){
     if(homingType >= 0 && homingType <= 4){
         homing_mode = homingType;
-        serialOutput.logSerial("Homing set to mode ", homingType, "\n");
+        logger.log("Homing set to mode ", homingType, "\n");
     }
     else{
-        serialOutput.logSerial("Invalid mode\n");
+        logger.log("Invalid mode\n");
     }
 }
 
@@ -797,7 +796,7 @@ void panoramiclapseInterpolation(float panStartAngle, float tiltStartAngle, floa
     float tiltInc = tiltAngle / numberOfIncrements;
     float sliderInc = sliderDistance / numberOfIncrements;
     
-    for(int i = 0; i <= numberOfIncrements; i++){
+    for(unsigned int i = 0; i <= numberOfIncrements; i += 1){
         setTargetPositions(panStartAngle + (panInc * i), tiltStartAngle + (tiltInc * i), sliderStartPos + (sliderInc * i));
         multi_stepper.runSpeedToPosition();//blocking move to the next position
         delay(msDelay / 2);
@@ -810,10 +809,10 @@ void panoramiclapseInterpolation(float panStartAngle, float tiltStartAngle, floa
 
 void panoramiclapse(float degPerPic, unsigned long msDelay, int repeat){   
     if(keyframe_elements < 2){ 
-        serialOutput.logSerial("Not enough keyframes\n");
+        logger.log("Not enough keyframes\n");
         return; //check there are posions to move to
     }
-    for(int i = 0; i < repeat; i++){
+    for(unsigned int i = 0; i < repeat; i += 1){
         for(int index = 0; index < keyframe_elements - 1; index++){
             panoramiclapseInterpolation(panStepsToDegrees(keyframe_array[index].panStepCount), tiltStepsToDegrees(keyframe_array[index].tiltStepCount), sliderStepsToMillimetres(keyframe_array[index].sliderStepCount),
             panStepsToDegrees(keyframe_array[index + 1].panStepCount), tiltStepsToDegrees(keyframe_array[index + 1].tiltStepCount), sliderStepsToMillimetres(keyframe_array[index + 1].sliderStepCount), degPerPic, msDelay);
@@ -851,7 +850,7 @@ void timelapse(unsigned int numberOfPictures, unsigned long msDelay){
     setTargetPositions(panStepsToDegrees(keyframe_array[0].panStepCount), tiltStepsToDegrees(keyframe_array[0].tiltStepCount), sliderStepsToMillimetres(keyframe_array[0].sliderStepCount));
     multi_stepper.runSpeedToPosition();//blocking move to the next position
     
-    for(int i = 0; i <= numberOfPictures; i++){
+    for(unsigned int i = 0; i <= numberOfPictures; i += 1){
         setTargetPositions(panStepsToDegrees(keyframe_array[0].panStepCount) + (panInc * i), tiltStepsToDegrees(keyframe_array[0].tiltStepCount) + (tiltInc * i), sliderStepsToMillimetres(keyframe_array[0].sliderStepCount) + (sliderInc * i));
         multi_stepper.runSpeedToPosition();//blocking move to the next position
         delay(halfDelay);
@@ -865,7 +864,7 @@ void timelapse(unsigned int numberOfPictures, unsigned long msDelay){
 //The first kayframe's x pan and tilt positions are used to calculate a 3D vector. The second keyframe's x and pan position are used to calculate a vertical plane. (It wuld be almost impossible for 2 3D vectors to intercept due to floating point precision issues.)
 //The intercept of the vectorand plane are then calculated to give the X, Y, Z coordinates of the point the camera was pointed at in both keyframes. (The second keyframe will ignore the tilt value and calculate it based on the first keyframes vector.)
 bool calculateTargetCoordinate(void){ 
-    float m1, c1, m2, c2;
+    float m1, c1, m2, c2 = 0;
     
     LinePoints line0;
     line0.x0 = sliderStepsToMillimetres(keyframe_array[0].sliderStepCount);
@@ -899,7 +898,7 @@ bool calculateTargetCoordinate(void){
     }
     else{
         if(m1 == m2){ //If the angle of the slope of both lines are the same they are parallel and cannot intercept.
-            serialOutput.logSerial("Positions do not intersect.");
+            logger.log("Positions do not intersect.");
             return false;
         }
         intercept.x = (c2 - c1) / (m1 - m2);
@@ -908,7 +907,7 @@ bool calculateTargetCoordinate(void){
     intercept.z = tan(degToRads(tiltStepsToDegrees(keyframe_array[0].tiltStepCount))) * sqrt(pow(intercept.x - sliderStepsToMillimetres(keyframe_array[0].sliderStepCount), 2) + pow(intercept.y, 2));
     if(((panStepsToDegrees(keyframe_array[0].panStepCount) > 0 && panStepsToDegrees(keyframe_array[1].panStepCount) > 0) && intercept.y < 0)
     || ((panStepsToDegrees(keyframe_array[0].panStepCount) < 0 && panStepsToDegrees(keyframe_array[1].panStepCount) < 0) && intercept.y > 0) || intercept.y == 0){ //Checks that the intercept point is in the direction the camera was pointing and not on the opposite side behind the camera.
-        serialOutput.logSerial("Invalid intercept.\n");
+        logger.log("Invalid intercept.\n");
         return false;
     }
     return true;
@@ -918,7 +917,7 @@ bool calculateTargetCoordinate(void){
 
 void interpolateTargetPoint(FloatCoordinate targetPoint, int repeat){ //The first two keyframes are interpolated between while keeping the camera pointing at previously calculated intercept point.
     if(keyframe_elements < 2){ 
-        serialOutput.logSerial("Not enough keyframes recorded\n");
+        logger.log("Not enough keyframes recorded\n");
         return; //check there are posions to move to
     }
 
@@ -965,11 +964,11 @@ void interpolateTargetPoint(FloatCoordinate targetPoint, int repeat){ //The firs
 void toggleAcceleration(void){
     if(acceleration_enable_state == 0){
         acceleration_enable_state = 1;
-        serialOutput.logSerial("Accel enabled.\n");
+        logger.log("Accel enabled.\n");
     }
     else{
         acceleration_enable_state = 0;
-        serialOutput.logSerial("Accel disabled.\n");
+        logger.log("Accel disabled.\n");
     }
 }
 
@@ -977,7 +976,7 @@ void toggleAcceleration(void){
 
 void scaleKeyframeSpeed(float scaleFactor){
     if(scaleFactor <= 0){//Make sure a valid speed factor was entered
-        serialOutput.logSerial("Invalid factor\n");
+        logger.log("Invalid factor\n");
         return; 
     }
     
@@ -986,7 +985,7 @@ void scaleKeyframeSpeed(float scaleFactor){
         keyframe_array[row].tiltSpeed *= scaleFactor;
         keyframe_array[row].sliderSpeed *= scaleFactor;
     }
-    serialOutput.logSerial("Keyframe speed scaled by ", scaleFactor, 3, "\n");
+    logger.log("Keyframe speed scaled by ", scaleFactor, 3, "\n");
 }
 
 /*--------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -995,7 +994,7 @@ void scaleKeyframeSpeed(float scaleFactor){
 void processCommand(char instruction, int serialCommandValueInt, float serialCommandValueFloat) {
     if(instruction == '+'){//The Bluetooth module sends a message starting with "+CONNECTING" which should be discarded.
         delay(100); //wait to make sure all data in the serial message has arived 
-        serialFlush();//Clear any excess data in the serial buffer
+        serialOutput.serialFlush();//Clear any excess data in the serial buffer
         return;
     }
     switch(instruction){        
@@ -1005,17 +1004,17 @@ void processCommand(char instruction, int serialCommandValueInt, float serialCom
         break;
         case INSTRUCTION_PAN_ACCEL_INCREMENT_DELAY:{
             pan_accel_increment_us = (serialCommandValueInt >= 0) ? serialCommandValueInt : 0;
-            serialOutput.logSerial("Pan accel delay: ", pan_accel_increment_us, "us\n");
+            logger.log("Pan accel delay: ", pan_accel_increment_us, "us\n");
         }
         break;
         case INSTRUCTION_TILT_ACCEL_INCREMENT_DELAY:{
             tilt_accel_increment_us = (serialCommandValueInt >= 0) ? serialCommandValueInt : 0;
-            serialOutput.logSerial("Tilt accel delay: ", tilt_accel_increment_us, "us\n");
+            logger.log("Tilt accel delay: ", tilt_accel_increment_us, "us\n");
         }
         break;
         case INSTRUCTION_SLIDER_ACCEL_INCREMENT_DELAY:{
             slider_accel_increment_us = (serialCommandValueInt >= 0) ? serialCommandValueInt : 0;
-            serialOutput.logSerial("Slider accel delay: ", slider_accel_increment_us, "us\n");
+            logger.log("Slider accel delay: ", slider_accel_increment_us, "us\n");
         }
         break;
         case INSTRUCTION_ACCEL_ENABLE:{
@@ -1028,25 +1027,25 @@ void processCommand(char instruction, int serialCommandValueInt, float serialCom
         break;
         case INSTRUCTION_DELAY_BETWEEN_PICTURES:{
             delay_ms_between_pictures = serialCommandValueFloat;
-            serialOutput.logSerial("Delay between pics: ", delay_ms_between_pictures, "ms\n");
+            logger.log("Delay between pics: ", delay_ms_between_pictures, "ms\n");
         }
         break;
         case INSTRUCTION_ANGLE_BETWEEN_PICTURES:{
             degrees_per_picture = serialCommandValueFloat;
-            serialOutput.logSerial("Degs per pic: ", degrees_per_picture, 3, "º\n");
+            logger.log("Degs per pic: ", degrees_per_picture, 3, "º\n");
         }
         break;     
         case INSTRUCTION_PANORAMICLAPSE:{
-            serialOutput.logSerial("Panorama\n");
+            logger.log("Panorama\n");
             panoramiclapse(degrees_per_picture, delay_ms_between_pictures, 1);
-            serialOutput.logSerial("Finished\n");
+            logger.log("Finished\n");
         }
         break;
         case INSTRUCTION_TIMELAPSE:{
-            serialOutput.logSerial("Timelapse with ", serialCommandValueInt, " pics\n");
-            serialOutput.logSerial("", delay_ms_between_pictures, "ms between pics\n");
+            logger.log("Timelapse with ", serialCommandValueInt, " pics\n");
+            logger.log("", delay_ms_between_pictures, "ms between pics\n");
             timelapse(serialCommandValueInt, delay_ms_between_pictures);
-            serialOutput.logSerial("Finished\n");
+            logger.log("Finished\n");
         }
         break;
         case INSTRUCTION_TRIGGER_SHUTTER:{
@@ -1054,16 +1053,16 @@ void processCommand(char instruction, int serialCommandValueInt, float serialCom
         }
         break;
         case INSTRUCTION_AUTO_HOME:{
-            serialOutput.logSerial("Homing\n");
+            logger.log("Homing\n");
             if(findHome()){
-                serialOutput.logSerial("Complete\n");
+                logger.log("Complete\n");
             }
             else{
                 stepper_pan.setCurrentPosition(0);
                 stepper_tilt.setCurrentPosition(0);
                 stepper_slider.setCurrentPosition(0);
                 setTargetPositions(0, 0, 0);
-                serialOutput.logSerial("Error homing\n");
+                logger.log("Error homing\n");
             }
         }
         break;
@@ -1073,12 +1072,12 @@ void processCommand(char instruction, int serialCommandValueInt, float serialCom
         break;
         case INSTRUCTION_SET_PAN_HALL_OFFSET:{
             hall_pan_offset_degrees = serialCommandValueFloat;
-            serialOutput.logSerial("Pan offset: ", hall_pan_offset_degrees, 3, "º\n");
+            logger.log("Pan offset: ", hall_pan_offset_degrees, 3, "º\n");
         }
         break;
         case INSTRUCTION_SET_TILT_HALL_OFFSET:{
             hall_tilt_offset_degrees = serialCommandValueFloat;
-            serialOutput.logSerial("Tilt offset: ", hall_tilt_offset_degrees, 3, "º\n");
+            logger.log("Tilt offset: ", hall_tilt_offset_degrees, 3, "º\n");
         }
         break;
          case INSTRUCTION_INVERT_SLIDER:{
@@ -1095,7 +1094,7 @@ void processCommand(char instruction, int serialCommandValueInt, float serialCom
         break;
         case INSTRUCTION_SAVE_TO_EEPROM:{
             //saveEEPROM();
-            serialOutput.logSerial("Saved to EEPROM\n");
+            logger.log("Saved to EEPROM\n");
         }
         break;
         case INSTRUCTION_ADD_POSITION:{
@@ -1104,22 +1103,22 @@ void processCommand(char instruction, int serialCommandValueInt, float serialCom
         break;
         case INSTRUCTION_STEP_FORWARD:{
             moveToIndex(current_keyframe_index + 1);
-            serialOutput.logSerial("Index: ", current_keyframe_index, "\n");
+            logger.log("Index: ", current_keyframe_index, "\n");
         }
         break;
         case INSTRUCTION_STEP_BACKWARD:{
             moveToIndex(current_keyframe_index - 1);
-            serialOutput.logSerial("Index: ", current_keyframe_index, "\n");
+            logger.log("Index: ", current_keyframe_index, "\n");
         }
         break;
         case INSTRUCTION_JUMP_TO_START:{
             gotoFirstKeyframe();
-            serialOutput.logSerial("Index: ", current_keyframe_index, "\n");
+            logger.log("Index: ", current_keyframe_index, "\n");
         }
         break;
         case INSTRUCTION_JUMP_TO_END:{
             gotoLastKeyframe();
-            serialOutput.logSerial("Index: ", current_keyframe_index, "\n");
+            logger.log("Index: ", current_keyframe_index, "\n");
         }
         break;
         case INSTRUCTION_EDIT_ARRAY:{
@@ -1163,28 +1162,28 @@ void processCommand(char instruction, int serialCommandValueInt, float serialCom
         }
         break; 
         case INSTRUCTION_SET_PAN_SPEED:{
-            serialOutput.logSerial("Max pan speed: ", serialCommandValueFloat, 1, "º/s.\n");
+            logger.log("Max pan speed: ", serialCommandValueFloat, 1, "º/s.\n");
             pan_max_speed = serialCommandValueFloat;
             stepper_pan.setMaxSpeed(panDegreesToSteps(pan_max_speed));
         }
         break; 
         case INSTRUCTION_SET_TILT_SPEED:{
-            serialOutput.logSerial("Max tilt speed: ", serialCommandValueFloat, 1, "º/s.\n");
+            logger.log("Max tilt speed: ", serialCommandValueFloat, 1, "º/s.\n");
             tilt_max_speed = serialCommandValueFloat;
             stepper_tilt.setMaxSpeed(tiltDegreesToSteps(tilt_max_speed));
         }
         break;
         case INSTRUCTION_SET_SLIDER_SPEED:{
-            serialOutput.logSerial("Max slider speed: ", serialCommandValueFloat, 1, "mm/s.\n");
+            logger.log("Max slider speed: ", serialCommandValueFloat, 1, "mm/s.\n");
             slider_max_speed = serialCommandValueFloat;
             stepper_slider.setMaxSpeed(sliderMillimetresToSteps(slider_max_speed));
         }
         break;
         case INSTRUCTION_CALCULATE_TARGET_POINT:{            
             if(calculateTargetCoordinate()){
-                serialOutput.logSerial("Target:\tx: ", intercept.x, 3, "\t");
-                serialOutput.logSerial("y: ", intercept.y, 3, "\t");
-                serialOutput.logSerial("z: ", intercept.z, 3, "mm\n");
+                logger.log("Target:\tx: ", intercept.x, 3, "\t");
+                logger.log("y: ", intercept.y, 3, "\t");
+                logger.log("z: ", intercept.z, 3, "mm\n");
             }
         }
         break;  
@@ -1197,45 +1196,9 @@ void processCommand(char instruction, int serialCommandValueInt, float serialCom
     }
 }
 
-void serialData(void){
-    char instruction = Serial.read();
-    if(instruction == INSTRUCTION_BYTES_SLIDER_PAN_TILT_SPEED){
-        int count = 0;
-        while(Serial.available() < 6){//Wait for 6 bytes to be available. Breaks after ~20ms if bytes are not received.
-                delayMicroseconds(200); 
-                count++;
-                if(count > 100){
-                    serialFlush();//Clear the serial buffer
-                    break;   
-                }
-            }
-            int sliderStepSpeed = (Serial.read() << 8) + Serial.read(); 
-            int panStepSpeed = (Serial.read() << 8) + Serial.read(); 
-            int tiltStepSpeed = (Serial.read() << 8) + Serial.read(); 
-
-            stepper_slider.setSpeed(sliderStepSpeed);
-            stepper_pan.setSpeed(panStepSpeed);
-            stepper_tilt.setSpeed(tiltStepSpeed);
-            stepper_slider.runSpeed();
-            stepper_pan.runSpeed();
-            stepper_tilt.runSpeed();
-    }
-    
-    delay(2); //wait to make sure all data in the serial message has arived 
-    memset(&stringText[0], 0, sizeof(stringText)); //clear the array
-    while(Serial.available()){//set elemetns of stringText to the serial values sent
-        char digit = Serial.read(); //read in a char
-        strncat(stringText, &digit, 1); //add digit to the end of the array
-    }
-    serialFlush();//Clear any excess data in the serial buffer
-    int serialCommandValueInt = atoi(stringText); //converts stringText to an int
-    float serialCommandValueFloat = atof(stringText); //converts stringText to a float
-    processCommand(instruction, serialCommandValueInt, serialCommandValueFloat);
-}
 
 // Here is your subArray function..
 byte* subArray(byte* theArray,int itemSize,int startItem,int numItems) {
-
    int   trace;
    int   numBytes;
    byte* newArray;
@@ -1275,7 +1238,9 @@ void checkBle() {
 
 void mainLoop(void){
     while(1){
-        if(Serial.available()) serialData();
+        if(serialOutput.available()) {
+            serialOutput.serialData();
+        }
         checkBle();
         multi_stepper.run();
     }
