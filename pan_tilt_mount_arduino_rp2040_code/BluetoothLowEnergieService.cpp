@@ -80,81 +80,79 @@ String BluetoothLowEnergieService::getSerialCommandFromMobileDevice() {
 
 
 void BluetoothLowEnergieService::logSerial(String text) {
-  //writeSerialOutput(text);
+  writeSerialOutput(text);
 }
 
 void BluetoothLowEnergieService::logSerial(String text, char c, String endText) {
-	//writeSerialOutput(text + " " + c + " " + endText);
+	writeSerialOutput(text + " " + c + " " + endText);
 }
 
 void BluetoothLowEnergieService::logSerial(short num, String endText) {
-	//writeSerialOutput(String(num) + " " + endText);
+	writeSerialOutput(String(num) + " " + endText);
 }
 
 void BluetoothLowEnergieService::logSerial(unsigned short num, String endText) {
-	//writeSerialOutput(String(num) + " " + endText);
+	writeSerialOutput(String(num) + " " + endText);
 }
 
 void BluetoothLowEnergieService::logSerial(int num, String endText) {
-	//writeSerialOutput(String(num) + " " + endText);
+	writeSerialOutput(String(num) + " " + endText);
 }
 
 void BluetoothLowEnergieService::logSerial(unsigned int num, String endText) {
-	//writeSerialOutput(String(num) + " " + endText);
+	writeSerialOutput(String(num) + " " + endText);
 }
 
 void BluetoothLowEnergieService::logSerial(long num, String endText) {
-	//writeSerialOutput(String(num) + " " + endText);
+	writeSerialOutput(String(num) + " " + endText);
 }
 
 void BluetoothLowEnergieService::logSerial(unsigned long num, String endText) {
-	//writeSerialOutput(String(num) + " " + endText);
+	writeSerialOutput(String(num) + " " + endText);
 }
 
 void BluetoothLowEnergieService::logSerial(float num, int dp, String endText) {
-	//writeSerialOutput(String(num) + " " + String(dp) + " " + endText);
+	writeSerialOutput(String(num) + " " + String(dp) + " " + endText);
 }
 
 void BluetoothLowEnergieService::logSerial(double num, int dp, String endText) {
-	//writeSerialOutput(String(num) + " " + String(dp) + " " + endText);
+	writeSerialOutput(String(num) + " " + String(dp) + " " + endText);
 }
 
 void BluetoothLowEnergieService::logSerial(String text, short num, String endText) {
-	//writeSerialOutput(text + String(num) + " " + endText);
+	writeSerialOutput(text + String(num) + " " + endText);
 }
 
 void BluetoothLowEnergieService::logSerial(String text, unsigned short num, String endText) {
-	//writeSerialOutput(text + String(num) + " " + endText);
+	writeSerialOutput(text + String(num) + " " + endText);
 }
 
 void BluetoothLowEnergieService::logSerial(String text, int num, String endText) {
-	//writeSerialOutput(text + String(num) + " " + endText);
+	writeSerialOutput(text + String(num) + " " + endText);
 }
 
 void BluetoothLowEnergieService::logSerial(String text, unsigned int num, String endText) {
-  //writeSerialOutput(text + String(num) + " " + endText);
+  writeSerialOutput(text + String(num) + " " + endText);
 }
 
 void BluetoothLowEnergieService::logSerial(String text, long num, String endText) {
-  //writeSerialOutput(text + String(num) + " " + endText);
+  writeSerialOutput(text + String(num) + " " + endText);
 }
 
 void BluetoothLowEnergieService::logSerial(String text, unsigned long num, String endText) {
-  //writeSerialOutput(text + String(num) + " " + endText);
+  writeSerialOutput(text + String(num) + " " + endText);
 }
 
 void BluetoothLowEnergieService::logSerial(String text, float num, int dp, String endText) {
-  //writeSerialOutput(text + String(num) + " " + endText);
+  writeSerialOutput(text + String(num) + " " + endText);
 }
 
 void BluetoothLowEnergieService::logSerial(String text, double num, int dp, String endText) {
-    //writeSerialOutput(text + String(num) + " " + endText);
+    writeSerialOutput(text + String(num) + " " + endText);
 }
 
 void BluetoothLowEnergieService::writeSerialOutput(String text) {
-  /*
-  if(isBleConnected()) {
+  if(bleConnected) {
     //bleSerialCommandToMobileDeviceService.writeValue(text.c_str(), text.length());
   }
-  */
 }

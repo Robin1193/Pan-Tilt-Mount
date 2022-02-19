@@ -46,7 +46,7 @@ private:
     BLECharacteristic bleGeneralInfoDeviceNameCharacteristic{BLE_GENERAL_INFO_DEVICE_NAME_UUID, BLERead, BLE_DEVICE_NAME};
 
     BLECharacteristic bleSerialCommandFromMobileDeviceService{BLE_SERIAL_COMMAND_COMMAND_FROM_MOBILE_DEVICE_UUID, BLEWrite, 20, false};
-    BLECharacteristic bleSerialCommandToMobileDeviceService{BLE_SERIAL_COMMAND_COMMAND_TO_MOBILE_DEVICE_UUID, BLERead | BLENotify, 50, false};
+    BLECharacteristic bleSerialCommandToMobileDeviceService{BLE_SERIAL_COMMAND_COMMAND_TO_MOBILE_DEVICE_UUID, BLERead | BLENotify, 120, false};
 
     BLEDevice peripheral;
 
