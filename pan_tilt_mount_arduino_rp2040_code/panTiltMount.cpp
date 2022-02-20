@@ -180,7 +180,7 @@ void setStepMode(int newMode){ //Step modes for the TMC2208
 /*--------------------------------------------------------------------------------------------------------------------------------------------------------*/
 
 void panDegrees(float angle){
-    logger.log("Set panDegrees to ",angle);
+    logger.log("Set panDegrees to ", angle);
     target_position[0] = panDegreesToSteps(angle);
     if(acceleration_enable_state == 0){
         multi_stepper.moveTo(target_position);
@@ -263,24 +263,24 @@ void printKeyframeElements(void){
 /*--------------------------------------------------------------------------------------------------------------------------------------------------------*/
 
 void debugReport(void){
-    logger.log("Status\n");
-    logger.log("Status\nEnable state: ", enable_state);
-    logger.log("Step Mode: ", step_mode);
-    logger.log("Pan angle: ", panStepsToDegrees(stepper_pan.currentPosition()), 3, "º\n");
-    logger.log("Tilt angle: ", tiltStepsToDegrees(stepper_tilt.currentPosition()), 3, "º\n"); 
-    logger.log("Slider position: ", sliderStepsToMillimetres(stepper_slider.currentPosition()), 3, "mm\n");  
-    logger.log("Pan max steps/s: ", stepper_pan.maxSpeed());
-    logger.log("Tilt max steps/s: ", stepper_tilt.maxSpeed());
-    logger.log("Slider max steps/s: ", stepper_slider.maxSpeed());
-    logger.log("Pan max speed: ", panStepsToDegrees(stepper_pan.maxSpeed()), 3, "º/s\n");
-    logger.log("Tilt max speed: ", tiltStepsToDegrees(stepper_tilt.maxSpeed()), 3, "º/s\n");
-    logger.log("Slider max speed: ", sliderStepsToMillimetres(stepper_slider.maxSpeed()), 3, "mm/s\n");        
-    logger.log("Battery: ", getBatteryPercentage(), 3, "%\n");
-    logger.log("Battery: ", getBatteryVoltage(), 3, "V\n");
-    logger.log("Homing mode: ", homing_mode);    
-    logger.log("Angle between pics: ", degrees_per_picture, 3, "º\n");
-    logger.log("Panoramiclapse delay between pics: ", delay_ms_between_pictures, "ms\n");   
-    logger.log(VERSION_NUMBER);
+    logger.log("Status\n",true);
+    logger.log("Status\nEnable state: ", enable_state, "\n", true);
+    logger.log("Step Mode: ", step_mode, "\n", true);
+    logger.log("Pan angle: ", panStepsToDegrees(stepper_pan.currentPosition()), 3, "º\n", true);
+    logger.log("Tilt angle: ", tiltStepsToDegrees(stepper_tilt.currentPosition()), 3, "º\n", true); 
+    logger.log("Slider position: ", sliderStepsToMillimetres(stepper_slider.currentPosition()), 3, "mm\n", true);  
+    logger.log("Pan max steps/s: ", stepper_pan.maxSpeed(), true);
+    logger.log("Tilt max steps/s: ", stepper_tilt.maxSpeed(), true);
+    logger.log("Slider max steps/s: ", stepper_slider.maxSpeed(), true);
+    logger.log("Pan max speed: ", panStepsToDegrees(stepper_pan.maxSpeed()), 3, "º/s\n", true);
+    logger.log("Tilt max speed: ", tiltStepsToDegrees(stepper_tilt.maxSpeed()), 3, "º/s\n", true);
+    logger.log("Slider max speed: ", sliderStepsToMillimetres(stepper_slider.maxSpeed()), 3, "mm/s\n", true);        
+    logger.log("Battery: ", getBatteryPercentage(), 3, "%\n", true);
+    logger.log("Battery: ", getBatteryVoltage(), 3, "V\n", true);
+    logger.log("Homing mode: ", homing_mode, "\n", true);    
+    logger.log("Angle between pics: ", degrees_per_picture, 3, "º\n", true);
+    logger.log("Panoramiclapse delay between pics: ", delay_ms_between_pictures, "ms\n", true);   
+    logger.log(VERSION_NUMBER, true);
     //printEEPROM();
     printKeyframeElements();
 //    logger.log("\n");

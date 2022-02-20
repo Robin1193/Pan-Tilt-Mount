@@ -144,7 +144,7 @@ void BluetoothLowEnergieService::logSerial(String text, unsigned long num, Strin
 }
 
 void BluetoothLowEnergieService::logSerial(String text, float num, int dp, String endText) {
-  writeSerialOutput(text + String(num) + " " + endText);
+  writeSerialOutput(text + " " + String(num) + " " + endText);
 }
 
 void BluetoothLowEnergieService::logSerial(String text, double num, int dp, String endText) {
@@ -153,6 +153,7 @@ void BluetoothLowEnergieService::logSerial(String text, double num, int dp, Stri
 
 void BluetoothLowEnergieService::writeSerialOutput(String text) {
   if(bleConnected) {
-    //bleSerialCommandToMobileDeviceService.writeValue(text.c_str(), text.length());
+    text.replace("\n", "");
+    bleSerialCommandToMobileDeviceService.writeValue(text.c_str(), text.length());
   }
 }
