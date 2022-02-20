@@ -676,7 +676,6 @@ void invertSliderDirection(bool invert){
 }
 
 /*--------------------------------------------------------------------------------------------------------------------------------------------------------*/
-
 /*
 void saveEEPROM(void){
     EEPROM.put(EEPROM_ADDRESS_HOMING_MODE, homing_mode);
