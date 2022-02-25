@@ -26,7 +26,7 @@ public:
         memcpy(bytes, u.temp_array, sizeof(T));
     }
 
-   template <typename T>
+    template <typename T>
     static void itemFromBytes(T* item, byte* bytes) {
         memcpy(item, bytes, sizeof(T));
     }

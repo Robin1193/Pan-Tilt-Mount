@@ -8,6 +8,7 @@
 //#include <EEPROM.h> //To be able to save values when powered off
 #include <WiFiNINA.h>
 #include "HelpFunctions.h"
+#include "EEPROMService.h"
 
 
 /*--------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -24,6 +25,8 @@ KeyframeElement keyframe_array[KEYFRAME_ARRAY_LENGTH];
 SerialOutput serialOutput;
 BluetoothLowEnergieService ble(&serialOutput);
 Log logger(&serialOutput, &ble);
+
+EEPROMService eeprom(&serialOutput);
 
 int keyframe_elements = 0;
 int current_keyframe_index = -1;
@@ -56,6 +59,7 @@ FloatCoordinate intercept;
 void initPanTilt(void){
     serialOutput.initSerialLog(BAUD_RATE);
     ble.initBle();
+    eeprom.initEEPROM();
     pinMode(PIN_MS1, OUTPUT);
     pinMode(PIN_MS2, OUTPUT);
     pinMode(PIN_MS3, OUTPUT);
@@ -72,7 +76,7 @@ void initPanTilt(void){
     pinMode(PIN_SLIDER_HALL, INPUT_PULLUP);
     pinMode(PIN_SHUTTER_TRIGGER, OUTPUT);
     digitalWrite(PIN_SHUTTER_TRIGGER, LOW);
-    //setEEPROMVariables();
+    setEEPROMVariables();
 
     setStepMode(step_mode); //steping mode
     stepper_pan.setMaxSpeed(panDegreesToSteps(pan_max_speed));
@@ -91,17 +95,18 @@ void initPanTilt(void){
     multi_stepper.addStepper(stepper_slider);
 
     digitalWrite(PIN_ENABLE, LOW); //Enable the stepper drivers
-//    if(homing_mode == 1){
-//        logger.log(F("Homing\n"));
-//        if(findHome()){
-//            logger.log(F("Complete\n"));
-//        }
-//        else{
-//            stepper_pan.setCurrentPosition(0);
-//            stepper_tilt.setCurrentPosition(0);
-//            logger.log(F("Error homing\n"));
-//        }
-//    }
+    if(homing_mode == 1){
+        logger.log("Homing\n");
+        if(findHome()){
+            logger.log("Complete\n");
+        }
+        else
+        {
+            stepper_pan.setCurrentPosition(0);
+            stepper_tilt.setCurrentPosition(0);
+            logger.log("Error homing\n");
+        }
+    }
 }
 
 /*--------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -281,9 +286,9 @@ void debugReport(void){
     logger.log("Angle between pics: ", degrees_per_picture, 3, "º\n", true);
     logger.log("Panoramiclapse delay between pics: ", delay_ms_between_pictures, "ms\n", true);   
     logger.log(VERSION_NUMBER, true);
-    //printEEPROM();
+    printEEPROM();
     printKeyframeElements();
-//    logger.log("\n");
+    logger.log("\n");
 }
 
 /*--------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -676,87 +681,101 @@ void invertSliderDirection(bool invert){
 }
 
 /*--------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/*
-void saveEEPROM(void){
-    EEPROM.put(EEPROM_ADDRESS_HOMING_MODE, homing_mode);
-    EEPROM.put(EEPROM_ADDRESS_MODE, step_mode);
-    EEPROM.put(EEPROM_ADDRESS_PAN_MAX_SPEED, pan_max_speed);
-    EEPROM.put(EEPROM_ADDRESS_TILT_MAX_SPEED, tilt_max_speed);
-    EEPROM.put(EEPROM_ADDRESS_SLIDER_MAX_SPEED, slider_max_speed);
-    EEPROM.put(EEPROM_ADDRESS_HALL_PAN_OFFSET, hall_pan_offset_degrees);
-    EEPROM.put(EEPROM_ADDRESS_HALL_TILT_OFFSET, hall_tilt_offset_degrees);
-    EEPROM.put(EEPROM_ADDRESS_INVERT_PAN, invert_pan);
-    EEPROM.put(EEPROM_ADDRESS_INVERT_TILT, invert_tilt);    
-    EEPROM.put(EEPROM_ADDRESS_INVERT_SLIDER, invert_slider);      
-    EEPROM.put(EEPROM_ADDRESS_DEGREES_PER_PICTURE, degrees_per_picture);
-    EEPROM.put(EEPROM_ADDRESS_PANORAMICLAPSE_DELAY, delay_ms_between_pictures);
-    EEPROM.put(EEPROM_ADDRESS_ACCELERATION_ENABLE, acceleration_enable_state);
-    EEPROM.put(EEPROM_ADDRESS_PAN_ACCEL_INCREMENT_DELAY, pan_accel_increment_us);
-    EEPROM.put(EEPROM_ADDRESS_TILT_ACCEL_INCREMENT_DELAY, tilt_accel_increment_us);
-    EEPROM.put(EEPROM_ADDRESS_SLIDER_ACCEL_INCREMENT_DELAY, slider_accel_increment_us);
+bool checkEEPROMConnected() {
+    if(!eeprom.eepromConnected()) {
+        serialOutput.logSerial("No EEPROM Connected\n");
+        return false;
+    }
+    return true;
 }
-*/
+
+void saveEEPROM(void){
+    if(!checkEEPROMConnected()) {
+        return;
+    }
+
+    eeprom.put(EEPROM_ADDRESS_HOMING_MODE, &homing_mode);
+    eeprom.put(EEPROM_ADDRESS_MODE, &step_mode);
+    eeprom.put(EEPROM_ADDRESS_PAN_MAX_SPEED, &pan_max_speed);
+    eeprom.put(EEPROM_ADDRESS_TILT_MAX_SPEED, &tilt_max_speed);
+    eeprom.put(EEPROM_ADDRESS_SLIDER_MAX_SPEED, &slider_max_speed);
+    eeprom.put(EEPROM_ADDRESS_HALL_PAN_OFFSET, &hall_pan_offset_degrees);
+    eeprom.put(EEPROM_ADDRESS_HALL_TILT_OFFSET, &hall_tilt_offset_degrees);
+    eeprom.put(EEPROM_ADDRESS_INVERT_PAN, &invert_pan);
+    eeprom.put(EEPROM_ADDRESS_INVERT_TILT, &invert_tilt);    
+    eeprom.put(EEPROM_ADDRESS_INVERT_SLIDER, &invert_slider);      
+    eeprom.put(EEPROM_ADDRESS_DEGREES_PER_PICTURE, &degrees_per_picture);
+    eeprom.put(EEPROM_ADDRESS_PANORAMICLAPSE_DELAY, &delay_ms_between_pictures);
+    eeprom.put(EEPROM_ADDRESS_ACCELERATION_ENABLE, &acceleration_enable_state);
+    eeprom.put(EEPROM_ADDRESS_PAN_ACCEL_INCREMENT_DELAY, &pan_accel_increment_us);
+    eeprom.put(EEPROM_ADDRESS_TILT_ACCEL_INCREMENT_DELAY, &tilt_accel_increment_us);
+    eeprom.put(EEPROM_ADDRESS_SLIDER_ACCEL_INCREMENT_DELAY, &slider_accel_increment_us);
+}
 
 /*--------------------------------------------------------------------------------------------------------------------------------------------------------*/
 
-/*
 void printEEPROM(void){
+    if(!checkEEPROMConnected()) {
+        return;
+    }
+
     int itemp;
     float ftemp;
     long ltemp;
-//    logger.log(F("EEPROM:\n"));
-    EEPROM.get(EEPROM_ADDRESS_MODE, itemp);
-    logger.log("EEPROM:\nStep mode: ", itemp, "\n");
-    EEPROM.get(EEPROM_ADDRESS_PAN_MAX_SPEED, ftemp);
-    logger.log("Pan max: ", ftemp, 3, "º/s\n");
-    EEPROM.get(EEPROM_ADDRESS_TILT_MAX_SPEED, ftemp);
-    logger.log("Tilt max: ", ftemp, 3, "º/s\n");
-    EEPROM.get(EEPROM_ADDRESS_SLIDER_MAX_SPEED, ftemp);
-    logger.log("Slider max: ", ftemp, 3, "mm/s\n"); 
-    EEPROM.get(EEPROM_ADDRESS_HALL_PAN_OFFSET, ftemp);
-    logger.log("Pan offset: ", ftemp, 3, "º\n");
-    EEPROM.get(EEPROM_ADDRESS_HALL_TILT_OFFSET, ftemp);
-    logger.log("Tilt offset: ", ftemp, 3, "º\n");
-    EEPROM.get(EEPROM_ADDRESS_DEGREES_PER_PICTURE, ftemp);
-    logger.log("Angle between pics: ", ftemp, 3, " º\n");
-    EEPROM.get(EEPROM_ADDRESS_PANORAMICLAPSE_DELAY, ltemp);
-    logger.log("Delay between pics: ", ltemp, "ms\n");   
-    logger.log("Pan invert: ", EEPROM.read(EEPROM_ADDRESS_INVERT_PAN));
-    logger.log("Tilt invert: ", EEPROM.read(EEPROM_ADDRESS_INVERT_TILT));
-    logger.log("Slider invert: ", EEPROM.read(EEPROM_ADDRESS_INVERT_SLIDER)); 
-    logger.log("Homing mode: ", EEPROM.read(EEPROM_ADDRESS_HOMING_MODE));
-    logger.log("Accel enable: ", EEPROM.read(EEPROM_ADDRESS_ACCELERATION_ENABLE));
-    EEPROM.get(EEPROM_ADDRESS_PAN_ACCEL_INCREMENT_DELAY, itemp);
-    logger.log("Pan accel delay: ", itemp, "us\n");
-    EEPROM.get(EEPROM_ADDRESS_TILT_ACCEL_INCREMENT_DELAY, itemp);
-    logger.log("Tilt accel delay: ", itemp, "us\n");
-    EEPROM.get(EEPROM_ADDRESS_SLIDER_ACCEL_INCREMENT_DELAY, itemp);
-    logger.log("Slider accel delay: ", itemp, "us\n");
+    logger.log("EEPROM:\n");
+    eeprom.get(EEPROM_ADDRESS_MODE, &itemp);
+    logger.log("EEPROM:\nStep mode: ", itemp, "\n", true);
+    eeprom.get(EEPROM_ADDRESS_PAN_MAX_SPEED, &ftemp);
+    logger.log("Pan max: ", ftemp, 3, "º/s\n", true);
+    eeprom.get(EEPROM_ADDRESS_TILT_MAX_SPEED, &ftemp);
+    logger.log("Tilt max: ", ftemp, 3, "º/s\n", true);
+    eeprom.get(EEPROM_ADDRESS_SLIDER_MAX_SPEED, &ftemp);
+    logger.log("Slider max: ", ftemp, 3, "mm/s\n", true); 
+    eeprom.get(EEPROM_ADDRESS_HALL_PAN_OFFSET, &ftemp);
+    logger.log("Pan offset: ", ftemp, 3, "º\n", true);
+    eeprom.get(EEPROM_ADDRESS_HALL_TILT_OFFSET, &ftemp);
+    logger.log("Tilt offset: ", ftemp, 3, "º\n", true);
+    eeprom.get(EEPROM_ADDRESS_DEGREES_PER_PICTURE, &ftemp);
+    logger.log("Angle between pics: ", ftemp, 3, " º\n", true);
+    eeprom.get(EEPROM_ADDRESS_PANORAMICLAPSE_DELAY, &ltemp);
+    logger.log("Delay between pics: ", ltemp, "ms\n", true);   
+    logger.log("Pan invert: ", eeprom.read(EEPROM_ADDRESS_INVERT_PAN), "\n", true);
+    logger.log("Tilt invert: ", eeprom.read(EEPROM_ADDRESS_INVERT_TILT), "\n", true);
+    logger.log("Slider invert: ", eeprom.read(EEPROM_ADDRESS_INVERT_SLIDER), "\n", true); 
+    logger.log("Homing mode: ", eeprom.read(EEPROM_ADDRESS_HOMING_MODE), "\n", true);
+    logger.log("Accel enable: ", eeprom.read(EEPROM_ADDRESS_ACCELERATION_ENABLE), "\n", true);
+    eeprom.get(EEPROM_ADDRESS_PAN_ACCEL_INCREMENT_DELAY, &itemp);
+    logger.log("Pan accel delay: ", itemp, "us\n", true);
+    eeprom.get(EEPROM_ADDRESS_TILT_ACCEL_INCREMENT_DELAY, &itemp);
+    logger.log("Tilt accel delay: ", itemp, "us\n", true);
+    eeprom.get(EEPROM_ADDRESS_SLIDER_ACCEL_INCREMENT_DELAY, &itemp);
+    logger.log("Slider accel delay: ", itemp, "us\n", true);
 }
-*/
 
 /*--------------------------------------------------------------------------------------------------------------------------------------------------------*/
 
-/*
 void setEEPROMVariables(void){
-    EEPROM.get(EEPROM_ADDRESS_MODE, step_mode);
-    EEPROM.get(EEPROM_ADDRESS_PAN_MAX_SPEED, pan_max_speed);
-    EEPROM.get(EEPROM_ADDRESS_TILT_MAX_SPEED, tilt_max_speed);
-    EEPROM.get(EEPROM_ADDRESS_SLIDER_MAX_SPEED, slider_max_speed);
-    EEPROM.get(EEPROM_ADDRESS_HALL_PAN_OFFSET, hall_pan_offset_degrees);
-    EEPROM.get(EEPROM_ADDRESS_HALL_TILT_OFFSET, hall_tilt_offset_degrees);
-    EEPROM.get(EEPROM_ADDRESS_DEGREES_PER_PICTURE, degrees_per_picture);
-    EEPROM.get(EEPROM_ADDRESS_PANORAMICLAPSE_DELAY, delay_ms_between_pictures);
-    EEPROM.get(EEPROM_ADDRESS_PAN_ACCEL_INCREMENT_DELAY, pan_accel_increment_us);
-    EEPROM.get(EEPROM_ADDRESS_TILT_ACCEL_INCREMENT_DELAY, tilt_accel_increment_us);
-    EEPROM.get(EEPROM_ADDRESS_SLIDER_ACCEL_INCREMENT_DELAY, slider_accel_increment_us);        
-    invert_pan = EEPROM.read(EEPROM_ADDRESS_INVERT_PAN);
-    invert_tilt = EEPROM.read(EEPROM_ADDRESS_INVERT_TILT);
-    invert_slider = EEPROM.read(EEPROM_ADDRESS_INVERT_SLIDER);
-    homing_mode = EEPROM.read(EEPROM_ADDRESS_HOMING_MODE);
-    acceleration_enable_state = EEPROM.read(EEPROM_ADDRESS_ACCELERATION_ENABLE);
+    if(!checkEEPROMConnected()) {
+        return;
+    }
+
+    eeprom.get(EEPROM_ADDRESS_MODE, &step_mode);
+    eeprom.get(EEPROM_ADDRESS_PAN_MAX_SPEED, &pan_max_speed);
+    eeprom.get(EEPROM_ADDRESS_TILT_MAX_SPEED, &tilt_max_speed);
+    eeprom.get(EEPROM_ADDRESS_SLIDER_MAX_SPEED, &slider_max_speed);
+    eeprom.get(EEPROM_ADDRESS_HALL_PAN_OFFSET, &hall_pan_offset_degrees);
+    eeprom.get(EEPROM_ADDRESS_HALL_TILT_OFFSET, &hall_tilt_offset_degrees);
+    eeprom.get(EEPROM_ADDRESS_DEGREES_PER_PICTURE, &degrees_per_picture);
+    eeprom.get(EEPROM_ADDRESS_PANORAMICLAPSE_DELAY, &delay_ms_between_pictures);
+    eeprom.get(EEPROM_ADDRESS_PAN_ACCEL_INCREMENT_DELAY, &pan_accel_increment_us);
+    eeprom.get(EEPROM_ADDRESS_TILT_ACCEL_INCREMENT_DELAY, &tilt_accel_increment_us);
+    eeprom.get(EEPROM_ADDRESS_SLIDER_ACCEL_INCREMENT_DELAY, &slider_accel_increment_us);        
+    invert_pan = eeprom.read(EEPROM_ADDRESS_INVERT_PAN);
+    invert_tilt = eeprom.read(EEPROM_ADDRESS_INVERT_TILT);
+    invert_slider = eeprom.read(EEPROM_ADDRESS_INVERT_SLIDER);
+    homing_mode = eeprom.read(EEPROM_ADDRESS_HOMING_MODE);
+    acceleration_enable_state = eeprom.read(EEPROM_ADDRESS_ACCELERATION_ENABLE);
 }
-*/
 
 /*--------------------------------------------------------------------------------------------------------------------------------------------------------*/
 
@@ -813,8 +832,16 @@ void panoramiclapse(float degPerPic, unsigned long msDelay, int repeat){
     }
     for(unsigned int i = 0; i < repeat; i += 1){
         for(int index = 0; index < keyframe_elements - 1; index++){
-            panoramiclapseInterpolation(panStepsToDegrees(keyframe_array[index].panStepCount), tiltStepsToDegrees(keyframe_array[index].tiltStepCount), sliderStepsToMillimetres(keyframe_array[index].sliderStepCount),
-            panStepsToDegrees(keyframe_array[index + 1].panStepCount), tiltStepsToDegrees(keyframe_array[index + 1].tiltStepCount), sliderStepsToMillimetres(keyframe_array[index + 1].sliderStepCount), degPerPic, msDelay);
+            panoramiclapseInterpolation(
+                panStepsToDegrees(keyframe_array[index].panStepCount), 
+                tiltStepsToDegrees(keyframe_array[index].tiltStepCount), 
+                sliderStepsToMillimetres(keyframe_array[index].sliderStepCount),
+                panStepsToDegrees(keyframe_array[index + 1].panStepCount), 
+                tiltStepsToDegrees(keyframe_array[index + 1].tiltStepCount), 
+                sliderStepsToMillimetres(keyframe_array[index + 1].sliderStepCount), 
+                degPerPic, 
+                msDelay
+                );
         }
     }
 }
@@ -1091,7 +1118,7 @@ void processCommand(char instruction, int serialCommandValueInt, float serialCom
         }
         break;
         case INSTRUCTION_SAVE_TO_EEPROM:{
-            //saveEEPROM();
+            saveEEPROM();
             logger.log("Saved to EEPROM\n");
         }
         break;
