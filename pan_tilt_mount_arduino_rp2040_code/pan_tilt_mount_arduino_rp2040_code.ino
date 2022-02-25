@@ -32,15 +32,37 @@
 //Efficiency improvements
 
 /*--------------------------------------------------------------------------------------------------------------------------------------------------------*/
-
-#include "src/panTiltMount.h"
-
+// Define TEST to run Tests on the console
+//#define TEST
 /*--------------------------------------------------------------------------------------------------------------------------------------------------------*/
 
-void setup(){
-    initPanTilt();
-}
 
-void loop(){
-    mainLoop();
-}
+
+#ifndef TEST
+  // Real Implementation
+  #include "src/panTiltMount.h"
+
+  void setup(){
+      initPanTilt();
+  }
+
+  void loop(){
+      mainLoop();
+  }
+
+#else
+  // Run Tests
+  #include "src/tests/TestController.h"
+  #include "src/GlobalSettings.h"
+
+  TestController testController;
+
+  void setup(){
+    testController.initTests(BAUD_RATE);
+  }
+
+  void loop(){
+    testController.runTests();
+  }
+
+  #endif
