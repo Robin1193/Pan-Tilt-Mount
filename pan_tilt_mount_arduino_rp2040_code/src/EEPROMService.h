@@ -49,7 +49,6 @@ private:
     I2C_eeprom eeprom;
 
     const int deviceSize = I2C_DEVICESIZE_24LC512;
-
 };
 
 #endif

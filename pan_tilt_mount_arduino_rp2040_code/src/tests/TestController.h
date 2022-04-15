@@ -9,6 +9,7 @@
 
 #include "../SerialOutput.h"
 #include "testfunctions/TestHelpFunctions.h"
+#include "testfunctions/TestEEPROMService.h"
 
 class TestController {
 public:
@@ -18,6 +19,7 @@ public:
 private:
     SerialOutput serial;
     TestHelpFunctions testHelpFunctions;
+    TestEEPROMService testEEPROMService;
 };
 
 #endif
