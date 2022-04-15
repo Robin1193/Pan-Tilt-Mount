@@ -1,3 +1,5 @@
+# Camera Slider with the Arduino RP2040 is currently in development! Do not use this version currently!
+
 # 3-Axis Slider
 A stepper motor driven, 3D printed and Arduino Nano controlled 3-axis slider.
 
